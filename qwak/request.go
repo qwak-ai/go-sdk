@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/qwak-ai/go-sdk/http"
+	"github.com/qwak-ai/go-sdk/qwak/http"
 )
 
 // PredictionRequest represents is a fluent API to build a prediction request on your model

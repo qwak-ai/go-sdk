@@ -2,12 +2,12 @@ package it_test
 
 import (
 	"context"
+	"github.com/qwak-ai/go-sdk/qwak"
 	"net/http"
 	"testing"
 
-	"github.com/qwak-ai/go-sdk"
-	qwakhttp "github.com/qwak-ai/go-sdk/http"
-	"github.com/qwak-ai/go-sdk/test/it"
+	qwakhttp "github.com/qwak-ai/go-sdk/qwak/http"
+	"github.com/qwak-ai/go-sdk/qwak/test/it"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
