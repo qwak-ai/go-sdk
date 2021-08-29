@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/qwak-ai/go-sdk/http"
+	"github.com/qwak-ai/go-sdk/qwak/http"
 	"time"
 )
 
