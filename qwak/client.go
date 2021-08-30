@@ -67,7 +67,7 @@ func getPredictionUrl(environment string, modelId string) string {
 
 // Predict using to perform an inference on your models hosting in Qwak
 func (c *RealTimeClient) Predict(predictionRequest *PredictionRequest) (*PredictionResponse, error) {
-	if len(predictionRequest.ModelId) == 0 {
+	if len(predictionRequest.modelId) == 0 {
 		return nil, errors.New("model id is missing in request")
 	}
 
@@ -78,7 +78,7 @@ func (c *RealTimeClient) Predict(predictionRequest *PredictionRequest) (*Predict
 	}
 
 	pandaOrientedDf := predictionRequest.asPandaOrientedDf()
-	predictionUrl := getPredictionUrl(c.environment, predictionRequest.ModelId)
+	predictionUrl := getPredictionUrl(c.environment, predictionRequest.modelId)
 	request, err := http.GetPredictionRequest(c.context, predictionUrl, token, pandaOrientedDf)
 
 	if err != nil {
