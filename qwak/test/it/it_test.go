@@ -44,6 +44,7 @@ func (s *IntegrationTestSuite) TestPredict() {
 			req.Header.Get("authorization") == "Bearer jwt-token"
 	})).Return(it.GetHttpReponse(it.GetPredictionResult(), 200), nil).Once()
 
+
 	// When
 	predictionRequest := qwak.NewPredictionRequest("otf").AddFeatureVector(
 		qwak.NewFeatureVector().
@@ -72,7 +73,54 @@ func (s *IntegrationTestSuite) TestPredict() {
 	value, err := response.GetSinglePrediction().GetValueAsInt("churn")
 	s.Assert().Equal(nil, err)
 	s.Assert().Equal(1, value)
+
+	// Given
+	s.HttpMock.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "https://models.donald.qwak.ai/v1/array-of-strings/predict" &&
+			req.Header.Get("authorization") == "Bearer jwt-token"
+	})).Return(it.GetHttpReponse(it.GetPredictionResultWithArrayOfStrings(), 200), nil).Once()
+
+	// When
+	predictionRequestWithArrayOfStrings := qwak.NewPredictionRequest("array-of-strings").AddFeatureVector(
+		qwak.NewFeatureVector().
+			WithFeature("State", "PPP").
+			WithFeature("Account_Length", 82).
+			WithFeature("Area_Code", 53).
+			WithFeature("Int'l_Plan", 66).
+			WithFeature("VMail_Plan", 85).
+			WithFeature("VMail_Message", 23).
+			WithFeature("Day_Mins", 1).
+			WithFeature("Day_Calls", 9).
+			WithFeature("Eve_Mins", 12.0).
+			WithFeature("Eve_Calls", 4).
+			WithFeature("Night_Mins", 31).
+			WithFeature("Night_Calls", 12).
+			WithFeature("Intl_Mins", 40).
+			WithFeature("Intl_Calls", 15).
+			WithFeature("CustServ_Calls", 64).
+			WithFeature("Agitation_Level", 9),
+	)
+
+	responseWithArrayOfStrings, err := s.realTimeClient.Predict(predictionRequestWithArrayOfStrings)
+
+	// Then
+	s.Assert().Equal(nil, err)
+	valueWithArrayOfStrings, err := responseWithArrayOfStrings.GetSinglePrediction().GetValueAsArrayOfStrings("strings")
+	s.Assert().Equal(nil, err)
+	s.Assert().Equal(valueWithArrayOfStrings, []string{"string1", "string2"})
+
+	valueAsInterface, err := responseWithArrayOfStrings.GetSinglePrediction().GetValueAsInterface("strings")
+	convertedValue, ok := valueAsInterface.([]interface{})
+	s.Assert().True(ok)
+	firstStringValue, ok1 := convertedValue[0].(string)
+	s.Assert().True(ok1)
+	s.Assert().Equal("string1", firstStringValue)
+	secondStringValue, ok2 := convertedValue[1].(string)
+	s.Assert().True(ok2)
+	s.Assert().Equal("string2", secondStringValue)
+
 	s.HttpMock.Mock.AssertExpectations(s.T())
+
 }
 
 func (s *IntegrationTestSuite) TestAuthenticationOnlyOnceForToken() {

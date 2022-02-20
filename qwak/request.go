@@ -77,7 +77,7 @@ func (pr *PredictionResponse) GetPredictions() []*PredictionResult {
 	return pr.predictions
 }
 
-// GetSinglePrediction return a single result from a prediction response
+// GetSinglePrediction returns a single result from a prediction response
 func (pr *PredictionResponse) GetSinglePrediction() *PredictionResult {
 	if len(pr.predictions) > 0 {
 		return pr.predictions[0]
@@ -163,6 +163,48 @@ func (pr *PredictionResult) GetValueAsString(columnName string) (string, error) 
 	}
 
 	return parsedValue, nil
+}
+
+// GetValueAsArrayOfStrings returning the value of column in a result converted to array of strings.
+// If conversion failed or column is not exist, an error returned
+func (pr *PredictionResult) GetValueAsArrayOfStrings(columnName string) ([]string, error) {
+	value, ok := pr.valuesMap[columnName]
+
+	if !ok {
+		return nil, errors.New("column is not exists")
+	}
+
+	parsedValue, ok := value.([]interface{})
+
+	if !ok {
+		return nil, errors.New("column value is not an array")
+	}
+
+	var result []string
+
+	for idx, val := range parsedValue {
+		parsedString, ok := val.(string)
+
+		if !ok {
+			return nil, fmt.Errorf("the value of '%s' at index '%d' is not a string", columnName, idx)
+		}
+
+		result = append(result, parsedString)
+	}
+
+	return result, nil
+}
+
+// GetValueAsInterface returning the value of column in a result without any conversion
+// If the column is missing, an error return
+func (pr *PredictionResult) GetValueAsInterface(columnName string) (interface{}, error) {
+	value, ok := pr.valuesMap[columnName]
+
+	if !ok {
+		return nil, errors.New("column is not exists")
+	}
+
+	return value, nil
 }
 
 // FeatureVector represents a vector of features with their name and value
