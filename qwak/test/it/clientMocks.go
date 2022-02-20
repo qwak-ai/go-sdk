@@ -35,6 +35,10 @@ func GetPredictionResult() string {
 	return "[{\"churn\":1}]"
 }
 
+func GetPredictionResultWithArrayOfStrings() string {
+	return "[{\"strings\":[\"string1\", \"string2\"]}]"
+}
+
 func GetHttpReponse(body string, statusCode int) *http.Response {
 	return &http.Response{
 		Body:       io.NopCloser(strings.NewReader(body)),
