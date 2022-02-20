@@ -186,7 +186,7 @@ func (pr *PredictionResult) GetValueAsArrayOfStrings(columnName string) ([]strin
 		parsedString, ok := val.(string)
 
 		if !ok {
-			return nil, fmt.Errorf("the value of %s with index %d is not a string", columnName, idx)
+			return nil, fmt.Errorf("the value of '%s' at index '%d' is not a string", columnName, idx)
 		}
 
 		result = append(result, parsedString)
