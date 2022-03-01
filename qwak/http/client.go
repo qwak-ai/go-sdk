@@ -27,7 +27,7 @@ func DoRequest(client Client, request *http.Request) (responseBody []byte, httpC
 	response, err := client.Do(request)
 
 	if err != nil {
-		return nil, 0, (fmt.Errorf("an error occured on authentication request: %v", err.Error()))
+		return nil, 0, fmt.Errorf("an error occured on http request: %v", err.Error())
 	}
 	defer response.Body.Close()
 	
