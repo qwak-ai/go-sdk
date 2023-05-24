@@ -3,6 +3,7 @@ package it_test
 import (
 	"context"
 	"github.com/qwak-ai/go-sdk/qwak"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 
@@ -43,7 +44,6 @@ func (s *IntegrationTestSuite) TestPredict() {
 		return req.URL.String() == "https://models.donald.qwak.ai/v1/otf/predict" &&
 			req.Header.Get("authorization") == "Bearer jwt-token"
 	})).Return(it.GetHttpReponse(it.GetPredictionResult(), 200), nil).Once()
-
 
 	// When
 	predictionRequest := qwak.NewPredictionRequest("otf").AddFeatureVector(
@@ -228,6 +228,45 @@ func (s *IntegrationTestSuite) TestRetryOnFailure() {
 	s.realTimeClient.Predict(predictionRequest)
 	s.realTimeClient.Predict(predictionRequest)
 	s.realTimeClient.Predict(predictionRequest)
+
+	// Then
+	s.HttpMock.Mock.AssertExpectations(s.T())
+}
+
+func (s *IntegrationTestSuite) TestRetryOnFailureMaxAttempts() {
+	// Given
+	s.givenQwakClientWithMockedHttpClient()
+
+	s.HttpMock.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == qwakhttp.DefaultAuthEndpointUri
+	})).Return(it.GetHttpReponse(it.GetAuthResponseWithLongExpiration(), 503), nil).Times(5)
+
+	s.HttpMock.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == qwakhttp.DefaultAuthEndpointUri
+	})).Return(it.GetHttpReponse(it.GetAuthResponseWithLongExpiration(), 200), nil).Once()
+
+	s.HttpMock.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "https://models.donald.qwak.ai/v1/otf/predict" &&
+			req.Header.Get("authorization") == "Bearer jwt-token"
+	})).Return(it.GetHttpReponse(it.GetPredictionResult(), 200), nil).Times(1)
+
+	s.HttpMock.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "https://models.donald.qwak.ai/v1/otf/predict" &&
+			req.Header.Get("authorization") == "Bearer jwt-token"
+	})).Return(it.GetHttpReponse(it.GetPredictionResult(), 200), nil).Times(1)
+
+	// When
+	predictionRequest := qwak.NewPredictionRequest("otf").AddFeatureVector(
+		qwak.NewFeatureVector().
+			WithFeature("State", "PPP"),
+	)
+
+	_, err := s.realTimeClient.Predict(predictionRequest)
+	require.Error(s.T(), err)
+	_, err = s.realTimeClient.Predict(predictionRequest)
+	require.NoError(s.T(), err)
+	_, err = s.realTimeClient.Predict(predictionRequest)
+	require.NoError(s.T(), err)
 
 	// Then
 	s.HttpMock.Mock.AssertExpectations(s.T())

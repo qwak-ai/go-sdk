@@ -30,7 +30,7 @@ func DoRequest(client Client, request *http.Request) (responseBody []byte, httpC
 		return nil, 0, fmt.Errorf("an error occured on http request: %v", err.Error())
 	}
 	defer response.Body.Close()
-	
+
 	body, err := ioutil.ReadAll(response.Body)
 
 	if err != nil {
@@ -42,18 +42,14 @@ func DoRequest(client Client, request *http.Request) (responseBody []byte, httpC
 }
 
 func DoRequestWithRetry(client Client, request *http.Request) (responseBody []byte, statusCode int, err error) {
-	retryAttempt := 0
 	lastHttpCode := 500
 	var lastErr error
 	var body []byte
 
-	for retryAttempt < MaximumRetryAttempts && lastHttpCode >= 500 && lastErr == nil {
+	for retryAttempt := 0; retryAttempt < MaximumRetryAttempts && lastHttpCode >= 500 && lastErr == nil; retryAttempt++ {
 		body, lastHttpCode, lastErr = DoRequest(client, request)
-
-		if lastHttpCode >= 500 || err == nil {
-			time.Sleep(RetryDelay * time.Duration(int(math.Pow(2, float64(retryAttempt)))))
-		}
+		time.Sleep(RetryDelay * time.Duration(int(math.Pow(2, float64(retryAttempt)))))
 	}
 
-	return body, lastHttpCode, nil
+	return body, lastHttpCode, lastErr
 }
