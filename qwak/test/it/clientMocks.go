@@ -26,6 +26,13 @@ func GetAuthResponseWithLongExpiration() string {
 	return fmt.Sprintf("{\"accessToken\":\"jwt-token\",\"expiredAt\":%d}", expiration.Unix())
 }
 
+func GetAuthResponseWithShortExpiration() string {
+	now := time.Now()
+	expiration := now.Add(time.Hour * 1)
+
+	return fmt.Sprintf("{\"accessToken\":\"jwt-token\",\"expiredAt\":%d}", expiration.Unix())
+}
+
 func GetAuthResponseWithExpiredDate() string {
 	expired := time.Now().Add(-1 * time.Minute)
 	return fmt.Sprintf("{\"accessToken\":\"jwt-token\",\"expiredAt\":%d}", expired.Unix())

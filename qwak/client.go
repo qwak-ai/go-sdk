@@ -19,14 +19,18 @@ type RealTimeClient struct {
 	httpClient    http.Client
 	environment   string
 	context       context.Context
+	RetryPolicy   http.RetryPolicy
 }
 
 // RealTimeClientConfig a set of configuration for the RealTimeClient
 type RealTimeClientConfig struct {
 	ApiKey      string
 	Environment string
-	Context     context.Context
-	HttpClient  http.Client
+	RetryPolicy http.RetryPolicy
+
+	// Deprecated: use PredictWithCtx
+	Context    context.Context
+	HttpClient http.Client
 }
 
 // NewRealTimeClient is a constructor to initiate a RealTimeClient using to model predictions
@@ -51,12 +55,12 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 	return &RealTimeClient{
 		authenticator: authentication.NewAuthenticator(&authentication.AuthenticatorOptions{
 			ApiKey:     options.ApiKey,
-			Ctx:        options.Context,
 			HttpClient: options.HttpClient,
 		}),
 		httpClient:  options.HttpClient,
-		context:     options.Context,
 		environment: options.Environment,
+		context:     options.Context,
+		RetryPolicy: options.RetryPolicy,
 	}, nil
 }
 
@@ -67,11 +71,16 @@ func getPredictionUrl(environment string, modelId string) string {
 
 // Predict using to perform an inference on your models hosting in Qwak
 func (c *RealTimeClient) Predict(predictionRequest *PredictionRequest) (*PredictionResponse, error) {
+	return c.PredictWithCtx(context.Background(), predictionRequest)
+}
+
+// PredictWithCtx using to perform an inference on your models hosting in Qwak with context to cancel request
+func (c *RealTimeClient) PredictWithCtx(ctx context.Context, predictionRequest *PredictionRequest) (*PredictionResponse, error) {
 	if len(predictionRequest.modelId) == 0 {
 		return nil, errors.New("model id is missing in request")
 	}
 
-	token, err := c.authenticator.GetToken()
+	token, err := c.authenticator.GetToken(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("qwak client failed to predict: %s", err.Error())
@@ -85,14 +94,14 @@ func (c *RealTimeClient) Predict(predictionRequest *PredictionRequest) (*Predict
 		return nil, fmt.Errorf("qwak client failed to predict: %s", err.Error())
 	}
 
-	responseBody, statusCode, err := http.DoRequest(c.httpClient, request)
+	responseBody, statusCode, err := http.DoRequestWithRetry(c.httpClient, request, c.RetryPolicy)
 
 	if err != nil {
-		return nil, fmt.Errorf("qwak client failed to predict: %s", err.Error())
+		return nil, fmt.Errorf("qwak client failed to send predict request: %w", err)
 	}
 
 	if statusCode != 200 {
-		return nil, fmt.Errorf("qwak client failed to predict: response with status code %d. response: %s", statusCode, responseBody)
+		return nil, fmt.Errorf("qwak prediction failed - model respond with status code %d. response: %s", statusCode, responseBody)
 	}
 
 	response, err := responseFromRaw(responseBody)
