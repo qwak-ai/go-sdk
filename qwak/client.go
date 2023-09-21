@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/qwak-ai/go-sdk/qwak/authentication"
 	"github.com/qwak-ai/go-sdk/qwak/http"
+	"time"
 )
 
 const (
@@ -18,18 +19,23 @@ type RealTimeClient struct {
 	authenticator *authentication.Authenticator
 	httpClient    http.Client
 	environment   string
-	context       context.Context
 	RetryPolicy   http.RetryPolicy
 }
 
 // RealTimeClientConfig a set of configuration for the RealTimeClient
 type RealTimeClientConfig struct {
-	ApiKey      string
+	// ApiKey Your qwak API key
+	ApiKey string
+	// Environment the environment name
 	Environment string
+	// RetryPolicy how to retry predict requests, default to no retry
 	RetryPolicy http.RetryPolicy
+	// RequestTimeout is the timeout of each http request the client performs
+	RequestTimeout time.Duration
 
 	// Deprecated: use PredictWithCtx
-	Context    context.Context
+	Context context.Context
+	// HttpClient override the http client created by the NewRealTimeClient constructor
 	HttpClient http.Client
 }
 
@@ -44,12 +50,10 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 		return nil, errors.New("environment is missing")
 	}
 
-	if options.Context == nil {
-		options.Context = context.Background()
-	}
-
 	if options.HttpClient == nil {
-		options.HttpClient = http.GetDefaultHttpClient()
+		client := http.GetDefaultHttpClient()
+		client.Timeout = options.RequestTimeout
+		options.HttpClient = client
 	}
 
 	return &RealTimeClient{
@@ -59,7 +63,6 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 		}),
 		httpClient:  options.HttpClient,
 		environment: options.Environment,
-		context:     options.Context,
 		RetryPolicy: options.RetryPolicy,
 	}, nil
 }
@@ -88,7 +91,7 @@ func (c *RealTimeClient) PredictWithCtx(ctx context.Context, predictionRequest *
 
 	pandaOrientedDf := predictionRequest.asPandaOrientedDf()
 	predictionUrl := getPredictionUrl(c.environment, predictionRequest.modelId)
-	request, err := http.GetPredictionRequest(c.context, predictionUrl, token, pandaOrientedDf)
+	request, err := http.GetPredictionRequest(ctx, predictionUrl, token, pandaOrientedDf)
 
 	if err != nil {
 		return nil, fmt.Errorf("qwak client failed to predict: %s", err.Error())

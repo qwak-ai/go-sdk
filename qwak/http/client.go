@@ -19,7 +19,7 @@ type Client interface {
 	Do(request *http.Request) (*http.Response, error)
 }
 
-func GetDefaultHttpClient() Client {
+func GetDefaultHttpClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -27,12 +27,13 @@ func GetDefaultHttpClient() Client {
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       20 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   30,
+			MaxConnsPerHost:       30,
+			IdleConnTimeout:       20 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
 		},
 		Timeout: 3 * time.Second,
 	}
@@ -58,16 +59,29 @@ func executeRequest(client Client, request *http.Request) (responseBody []byte, 
 }
 
 func DoRequestWithRetry(client Client, request *http.Request, policy RetryPolicy) (responseBody []byte, statusCode int, err error) {
-
-	lastHttpCode := 500
+	var lastHttpCode int
 	var errs []string
 	var lastErr error
 	var body []byte
 
-	for retryAttempt := 0; retryAttempt < policy.getMaxAttempts() && request.Context().Err() == nil && (lastHttpCode >= 500 || lastErr != nil); retryAttempt++ {
-		body, lastHttpCode, lastErr = executeRequest(client, request)
+	for retryAttempt := 0; retryAttempt < policy.getMaxAttempts() && (retryAttempt == 0 || lastErr != nil); retryAttempt++ {
+
+		if request.Context().Err() != nil {
+			lastErr = request.Context().Err()
+			errs = append(errs, fmt.Sprintf("Attempt #%d discarded: %v", retryAttempt, lastErr.Error()))
+			break
+		} else {
+			body, lastHttpCode, lastErr = executeRequest(client, request)
+		}
+
+		if lastErr == nil && lastHttpCode >= 500 {
+			lastErr = fmt.Errorf("request failed with status code '%d'", lastHttpCode)
+		}
+
 		if lastErr != nil {
-			errs = append(errs, fmt.Sprintf("Attempt #%d: %v", retryAttempt, lastErr.Error()))
+			if lastErr != nil {
+				errs = append(errs, fmt.Sprintf("Attempt #%d: %v", retryAttempt, lastErr.Error()))
+			}
 			duration := time.Duration(policy.getBackoffForAttempt(retryAttempt)) * time.Millisecond
 
 			select {
@@ -88,9 +102,13 @@ func joinErrors(errs []string) error {
 }
 
 type RetryPolicy struct {
+	// MaxAttempts number of attempts on failure
 	MaxAttempts int
-	IntervalMs  int
-	// ExponentialBackoffFactor =1 - Linear; > 1 - Exponential
+	// IntervalMs the duration to wait before retry
+	// wait time = IntervalMs * (ExponentialBackoffFactor ^ attempt no.)
+	IntervalMs int
+	// ExponentialBackoffFactor == 1 - Linear; ExponentialBackoffFactor > 1 - Exponential
+	// wait time = IntervalMs * (ExponentialBackoffFactor ^ attempt no.)
 	ExponentialBackoffFactor float64
 }
 

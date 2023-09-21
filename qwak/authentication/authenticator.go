@@ -136,7 +136,7 @@ func (a *Authenticator) doGetTokenRequest(ctx context.Context, apiKey string) (a
 	}
 
 	if statusCode != 200 {
-		return decodedResponse, fmt.Errorf("authentication failed. failed with code %d. response: %s", statusCode, body)
+		return decodedResponse, fmt.Errorf("authentication failed. failed with code %d. response: '%s'", statusCode, body)
 	}
 
 	err = json.Unmarshal(body, &decodedResponse)
