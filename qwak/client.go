@@ -50,6 +50,10 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 		return nil, errors.New("environment is missing")
 	}
 
+	if options.RequestTimeout == 0 {
+		options.RequestTimeout = 5 * time.Second
+	}
+
 	if options.HttpClient == nil {
 		client := http.GetDefaultHttpClient()
 		client.Timeout = options.RequestTimeout
