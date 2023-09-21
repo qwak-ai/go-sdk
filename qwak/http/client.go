@@ -82,7 +82,7 @@ func DoRequestWithRetry(client Client, request *http.Request, policy RetryPolicy
 			if lastErr != nil {
 				errs = append(errs, fmt.Sprintf("Attempt #%d: %v", retryAttempt, lastErr.Error()))
 			}
-			duration := time.Duration(policy.getBackoffForAttempt(retryAttempt)) * time.Millisecond
+			duration := time.Duration(policy.getBackoffForAttempt(retryAttempt+1)) * time.Millisecond
 
 			select {
 			case <-request.Context().Done():
