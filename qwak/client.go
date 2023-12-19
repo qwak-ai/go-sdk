@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
+	"time"
+
 	"github.com/qwak-ai/go-sdk/qwak/authentication"
 	"github.com/qwak-ai/go-sdk/qwak/http"
-	"time"
 )
 
 const (
@@ -20,6 +23,7 @@ type RealTimeClient struct {
 	httpClient    http.Client
 	environment   string
 	RetryPolicy   http.RetryPolicy
+	url           string
 }
 
 // RealTimeClientConfig a set of configuration for the RealTimeClient
@@ -28,6 +32,8 @@ type RealTimeClientConfig struct {
 	ApiKey string
 	// Environment the environment name
 	Environment string
+	// Optional set a full url directly to the model prediction endpoint
+	Url string
 	// RetryPolicy how to retry predict requests, default to no retry
 	RetryPolicy http.RetryPolicy
 	// RequestTimeout is the timeout of each http request the client performs
@@ -46,8 +52,12 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 		return nil, errors.New("api key is missing")
 	}
 
-	if len(options.Environment) == 0 {
-		return nil, errors.New("environment is missing")
+	if len(options.Environment) == 0 && options.Url == "" {
+		return nil, errors.New("environment or url variables are mandatory")
+	}
+
+	if options.Url != "" && !isValidURL(options.Url) {
+		return nil, errors.New("url is not valid")
 	}
 
 	if options.RequestTimeout == 0 {
@@ -67,11 +77,43 @@ func NewRealTimeClient(options RealTimeClientConfig) (*RealTimeClient, error) {
 		}),
 		httpClient:  options.HttpClient,
 		environment: options.Environment,
+		url:         options.Url,
 		RetryPolicy: options.RetryPolicy,
 	}, nil
 }
 
-func getPredictionUrl(environment string, modelId string) string {
+func isValidURL(input string) bool {
+	// Parse the input string as a URL
+	u, err := url.ParseRequestURI(input)
+	if err != nil {
+		return false
+	}
+
+	// Check if the scheme is either "http" or "https"
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+
+	// Check if the host is DNS-compatible
+	if !isValidHost(u.Host) {
+		return false
+	}
+
+	return true
+}
+
+func isValidHost(host string) bool {
+	// Use a regular expression to check if the host is DNS-compatible
+	// This is a basic check and may not cover all valid DNS names
+	// You may want to customize this regex based on your specific requirements
+	regex := regexp.MustCompile(`^[a-zA-Z0-9.-]+$`)
+	return regex.MatchString(host)
+}
+
+func getPredictionUrl(environment string, modelId string, url string) string {
+	if url != "" {
+		return url + fmt.Sprintf(PredictionPathUrlTemplate, modelId)
+	}
 	return fmt.Sprintf(PredictionBaseUrlTemplate, environment) +
 		fmt.Sprintf(PredictionPathUrlTemplate, modelId)
 }
@@ -94,7 +136,7 @@ func (c *RealTimeClient) PredictWithCtx(ctx context.Context, predictionRequest *
 	}
 
 	pandaOrientedDf := predictionRequest.asPandaOrientedDf()
-	predictionUrl := getPredictionUrl(c.environment, predictionRequest.modelId)
+	predictionUrl := getPredictionUrl(c.environment, predictionRequest.modelId, c.url)
 	request, err := http.GetPredictionRequest(ctx, predictionUrl, token, pandaOrientedDf)
 
 	if err != nil {
